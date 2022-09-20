@@ -4,7 +4,7 @@
 #
 # 1  Configuration > Robots.txt > Settings > Ignore robots.txt
 # 1. Start a screaming frog job.
-# 2. After the job finishes, Bulk Export > Links > All Outlinks.
+# 2. After the job finishes, Bulk Export > Links > All Inlinks.
 # 3. Run screaming_frog.py.
 import csv
 import sys
@@ -15,7 +15,7 @@ import re
 
 
 def command_line_args(argv):
-	full_helptext = "\nUsage: screaming_frog.py [-2] [-s] [-f] [-t] [-h]\n" + "\n-2 Include rows with status code 200, otherwise remove those rows.\n\n" + "-s include a Screaming Frog scan, otherwise do not do the scan (and assume the results are in /tmp/cli/all_outlinks.csv)\n\n" + "-f Include all source URLs, otherwise retain only those that start with https://www.brightspot.com/documentation/\n\n" + "-t Include only links in the topic (excludes links in TOC, left nav, footer\n\n" + "-h Display this help text.\n"
+	full_helptext = "\nUsage: screaming_frog.py [-2] [-s] [-f] [-t] [-h]\n" + "\n-2 Include rows with status code 200, otherwise remove those rows.\n\n" + "-s include a Screaming Frog scan, otherwise do not do the scan (and assume the results are in /tmp/cli/all_inlinks.csv)\n\n" + "-f Include all source URLs, otherwise retain only those that start with https://www.brightspot.com/documentation/\n\n" + "-t Include only links in the topic (excludes links in TOC, left nav, footer\n\n" + "-h Display this help text.\n"
 	try:
 		optlist, csvfile = getopt.getopt(argv,'2fhst')
 	except getopt.GetoptError as err:
@@ -66,19 +66,19 @@ if include_sf_run:
 
 	os.mkdir("/tmp/cli")
 
-	command_line = '"/Applications/Screaming Frog SEO Spider.app/Contents/MacOS/ScreamingFrogSEOSpiderLauncher" --crawl https://brightspot.com --headless --save-crawl --output-folder /tmp/cli --bulk-export "Links:All Outlinks" --export-format csv --config {}'.format(configuration_file_path)
+	command_line = '"/Applications/Screaming Frog SEO Spider.app/Contents/MacOS/ScreamingFrogSEOSpiderLauncher" --crawl https://brightspot.com --headless --save-crawl --output-folder /tmp/cli --bulk-export "Links:All Inlinks" --export-format csv --config {}'.format(configuration_file_path)
 
 	os.system(command_line)
 
 else:
 # If we do not include the Screaming Frog run, ensure that its output exists.
-	if not os.path.exists("/tmp/cli/all_outlinks.csv"):
-		print("\nMissing the output file /tmp/cli_outlinks.csv from a Screaming Frog run. Rerun this command with the -s option to generate it. Exiting.")
+	if not os.path.exists("/tmp/cli/all_inlinks.csv"):
+		print("\nMissing the output file /tmp/cli_inlinks.csv from a Screaming Frog run. Rerun this command with the -s option to generate it. Exiting.")
 		sys.exit()
 
-print("Processing /tmp/cli/all_outlinks.csv")
+print("Processing /tmp/cli/all_inlinks.csv")
 
-path_to_csv_file = "/tmp/cli/all_outlinks.csv"
+path_to_csv_file = "/tmp/cli/all_inlinks.csv"
 
 uniques = set({})
 counters = {
