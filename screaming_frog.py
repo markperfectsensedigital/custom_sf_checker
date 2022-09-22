@@ -45,6 +45,28 @@ def command_line_args(argv):
 	print("  Include Screaming Frog run: " + str(include_sf_run))
 	print("  Include topic links only: " + str(topic_links_only))
 
+
+healed_infile = '/tmp/cli/healed.csv'
+cleanfile = open(healed_infile,'wb')
+previous_char_newline = False
+with open('/tmp/cli/all_inlinks.csv', 'rb') as f:
+	while 1:
+		char = f.read(1)
+		if not char:
+			break
+		if char.hex() == '0d':
+			previous_char_newline = True
+		elif char.hex() == '0a':
+			if previous_char_newline == True:
+				previous_char_newline = False 
+			else:
+				cleanfile.write(char)
+		else:
+			cleanfile.write(char)
+			
+cleanfile.close()
+f.close()
+
 include_200 = False
 retain_all_sources = False
 include_sf_run = False
@@ -72,13 +94,11 @@ if include_sf_run:
 
 else:
 # If we do not include the Screaming Frog run, ensure that its output exists.
-	if not os.path.exists("/tmp/cli/all_inlinks.csv"):
+	if not os.path.exists(healed_infile):
 		print("\nMissing the output file /tmp/cli_inlinks.csv from a Screaming Frog run. Rerun this command with the -s option to generate it. Exiting.")
 		sys.exit()
 
-print("Processing /tmp/cli/all_inlinks.csv")
-
-path_to_csv_file = "/tmp/cli/all_inlinks.csv"
+print("Processing " + healed_infile)
 
 uniques = set({})
 counters = {
@@ -87,7 +107,7 @@ counters = {
 	'lines_in_file' : 1,
 	'lines_output' : 0
 }
-csvfile = open(path_to_csv_file,mode='r',encoding='utf-8-sig')
+csvfile = open(healed_file,mode='r',encoding='utf-8-sig')
 ods_import = open('/tmp/cli/ods_import.csv','w')
 linkreader = csv.DictReader(csvfile,delimiter=',')
 linkwriter = csv.writer(ods_import,delimiter=',')
@@ -117,19 +137,19 @@ ods_import.close()
 
 print("Creating SQLite import file")
 
-csvfile = open(path_to_csv_file,mode='r',encoding='utf-8-sig')
+csvfile = open(healed_infile,mode='r',encoding='utf-8-sig')
 csvline = 0;
 pattern = re.compile(r'^"(.)(.*)(.)"$');
 sqlite_import = open('/tmp/cli/sqlite_import.csv','w')
-for line in csvfile:
-	csvline += 1
-	sqlite_string_1 = line.replace('","','*')
-	sqlite_string_2 = sqlite_string_1.replace(',',' ')
-	sqlite_string_3 = pattern.sub(f'\g<1>\g<2>\g<3>*{csvline}',sqlite_string_2)
-	sqlite_string_4 = sqlite_string_3.replace('*',',')
-	sqlite_import.write(sqlite_string_4)
+#for line in csvfile:
+#	csvline += 1
+#	sqlite_string_1 = line.replace('","','*')
+#	sqlite_string_2 = sqlite_string_1.replace(',',' ')
+#	sqlite_string_3 = pattern.sub(f'\g<1>\g<2>\g<3>*{csvline}',sqlite_string_2)
+#	sqlite_string_4 = sqlite_string_3.replace('*',',')
+#	sqlite_import.write(sqlite_string_4)
 
-sqlite_import.close()
+#sqlite_import.close()
 print("\nResults:")
 print("  Number of lines in file: {0:,}".format(counters['lines_in_file']))
 print("  Number of excluded lines: {0:,}".format(counters['lines_excluded']))
@@ -139,7 +159,7 @@ print("ods import file is at '/tmp/cli/ods_import.csv'")
 print("sqlite import file is at '/tmp/cli/sqlite_import.csv'")
 
 print("Creating SQLite table and importing")
-os.system('sqlite3 /Users/mlautman/Documents/support_desk/quality_problems/sqlite/ScreamingFrog.sqlite < /Users/mlautman/Documents/support_desk/quality_problems/sqlite/screaming_frog_commands.sql')
+#os.system('sqlite3 /Users/mlautman/Documents/support_desk/quality_problems/sqlite/ScreamingFrog.sqlite < /Users/mlautman/Documents/support_desk/quality_problems/sqlite/screaming_frog_commands.sql')
 
 print("Creating HTML report")
 htmlfile = open('/tmp/cli/broken_link_report.html',mode='w')
@@ -202,9 +222,13 @@ ending_string = """
 htmlfile.write(starting_string)
 ods_import = open('/tmp/cli/ods_import.csv','r')
 next(ods_import);
+line_number=1;
 for row in ods_import:
+	line_number +=	1
 	fields = row.split(',')
-	detail = '\n<tr><td><a href="{0}">{0}</a></td><td><a href="{1}">{1}</a></td><td>{2}</td><td>{3}</td><td>{4}</td></tr>'.format(fields[1],fields[2],fields[3],fields[4],fields[5])
+	print('Processing line {0}: {1}'.format(line_number,fields[1]))
+	detail = '\n<tr><td><a href="{0}">{0}</a></td><td><a href="{1}">{1}</a></td><td>{2}</td><td>{2}</td><td>{2}</td></tr>'.format(fields[1],fields[2],fields[2],fields[2],fields[2])
+	#detail = '\n<tr><td><a href="{0}">{0}</a></td><td><a href="{1}">{1}</a></td><td>{2}</td><td>{3}</td><td>{4}</td></tr>'.format(fields[1],fields[2],fields[3],fields[4],fields[5])
 	htmlfile.write(detail)
 htmlfile.write(ending_string)
 htmlfile.close()
