@@ -91,7 +91,7 @@ csvfile = open(path_to_csv_file,mode='r',encoding='utf-8-sig')
 ods_import = open('/tmp/cli/ods_import.csv','w')
 linkreader = csv.DictReader(csvfile,delimiter=',')
 linkwriter = csv.writer(ods_import,delimiter=',')
-line = next(linkreader);
+line = next(linkreader); # Skip reading the first line, it has headers.
 linkwriter.writerow(['Type','Source','Destination','Anchor','Status Code','Status'])
 for row in linkreader:
 	counters['lines_in_file'] += 1
