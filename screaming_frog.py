@@ -12,12 +12,12 @@ import getopt
 import os
 import shutil
 import re
-
+import functools
 
 def command_line_args(argv):
-	full_helptext = "\nUsage: screaming_frog.py [-2] [-s] [-f] [-t] [-h]\n" + "\n-2 Include rows with status code 200, otherwise remove those rows.\n\n" + "-s include a Screaming Frog scan, otherwise do not do the scan (and assume the results are in /tmp/cli/all_inlinks.csv)\n\n" + "-f Include all source URLs, otherwise retain only those that start with https://www.brightspot.com/documentation/\n\n" + "-t Include only links in the topic (excludes links in TOC, left nav, footer\n\n" + "-h Display this help text.\n"
+	full_helptext = "\nUsage: screaming_frog.py [-2] [-s] [-f] [-t] [-h]\n" + "\n-2 Include rows with status code 200, otherwise remove those rows.\n\n" + "-s Include a Screaming Frog scan, otherwise do not do the scan (and assume the results are in /tmp/cli/all_inlinks.csv)\n\n" + "-j Join lines ending with \\r\\n (otherwise assume the joined file is in /tmp/cli/healed.csv)\n\n"  + "-f Include all source URLs, otherwise retain only those that start with https://www.brightspot.com/documentation/\n\n" + "-t Include only links in the topic (excludes links in TOC, left nav, footer)\n\n" + "-h Display this help text.\n"
 	try:
-		optlist, csvfile = getopt.getopt(argv,'2fhst')
+		optlist, csvfile = getopt.getopt(argv,'2fhsjt')
 	except getopt.GetoptError as err:
 		print("Unrecognized option\n")
 		print (full_helptext)
@@ -25,6 +25,7 @@ def command_line_args(argv):
 	global include_200
 	global retain_all_sources
 	global include_sf_run
+	global include_file_heal
 	global topic_links_only
 	for opt,arg in optlist:
 		if opt == '-h':
@@ -38,39 +39,24 @@ def command_line_args(argv):
 				include_sf_run = True
 		elif opt == '-t':
 				topic_links_only = True
+		elif opt == '-j':
+				include_file_heal = True
 		
 	print("Running with the following options:")
 	print("  Include status code 200: " + str(include_200))
 	print("  Include non-documentation sources: " + str(retain_all_sources))
 	print("  Include Screaming Frog run: " + str(include_sf_run))
+	print("  Include line join: " + str(include_file_heal))
 	print("  Include topic links only: " + str(topic_links_only))
 
-
-healed_infile = '/tmp/cli/healed.csv'
-cleanfile = open(healed_infile,'wb')
-previous_char_newline = False
-with open('/tmp/cli/all_inlinks.csv', 'rb') as f:
-	while 1:
-		char = f.read(1)
-		if not char:
-			break
-		if char.hex() == '0d':
-			previous_char_newline = True
-		elif char.hex() == '0a':
-			if previous_char_newline == True:
-				previous_char_newline = False 
-			else:
-				cleanfile.write(char)
-		else:
-			cleanfile.write(char)
-			
-cleanfile.close()
-f.close()
 
 include_200 = False
 retain_all_sources = False
 include_sf_run = False
+include_file_heal = False
 topic_links_only = False
+
+healed_infile = '/tmp/cli/healed.csv'
 
 command_line_args(sys.argv[1:])
 
@@ -94,11 +80,20 @@ if include_sf_run:
 
 else:
 # If we do not include the Screaming Frog run, ensure that its output exists.
-	if not os.path.exists(healed_infile):
-		print("\nMissing the output file /tmp/cli_inlinks.csv from a Screaming Frog run. Rerun this command with the -s option to generate it. Exiting.")
+	if not os.path.exists('/tmp/cli/all_inlinks.csv'):
+		print("\nMissing the output file /tmp/cli/all_inlinks.csv from a Screaming Frog run. Rerun this command with the -s option to generate it. Exiting.")
 		sys.exit()
 
-print("Processing " + healed_infile)
+if include_file_heal == True:
+	print("Creating " + healed_infile)
+	cleanfile = open(healed_infile,'wb')
+	with open('/private/tmp/cli/all_inlinks.csv', 'rb') as f:
+		chunker = functools.partial(f.read, 1048576) # Read 1MB at a time
+		for chunk in iter(chunker, b''):
+			clean = chunk.replace(b'\x0D\x0A',b'')
+			cleanfile.write(clean)
+	cleanfile.close()
+	f.close()
 
 uniques = set({})
 counters = {
