@@ -102,10 +102,10 @@ counters = {
 	'lines_in_file' : 1,
 	'lines_output' : 0
 }
-csvfile = open(healed_file,mode='r',encoding='utf-8-sig')
+csvfile = open(healed_infile,mode='r',encoding='utf-8-sig')
 ods_import = open('/tmp/cli/ods_import.csv','w')
 linkreader = csv.DictReader(csvfile,delimiter=',')
-linkwriter = csv.writer(ods_import,delimiter=',')
+linkwriter = csv.writer(ods_import,delimiter='\t')
 line = next(linkreader); # Skip reading the first line, it has headers.
 linkwriter.writerow(['Type','Source','Destination','Anchor','Status Code','Status'])
 for row in linkreader:
@@ -130,12 +130,12 @@ for row in linkreader:
 csvfile.close()
 ods_import.close()
 
-print("Creating SQLite import file")
+#print("Creating SQLite import file")
 
-csvfile = open(healed_infile,mode='r',encoding='utf-8-sig')
-csvline = 0;
-pattern = re.compile(r'^"(.)(.*)(.)"$');
-sqlite_import = open('/tmp/cli/sqlite_import.csv','w')
+#csvfile = open(healed_infile,mode='r',encoding='utf-8-sig')
+#csvline = 0;
+#pattern = re.compile(r'^"(.)(.*)(.)"$');
+#sqlite_import = open('/tmp/cli/sqlite_import.csv','w')
 #for line in csvfile:
 #	csvline += 1
 #	sqlite_string_1 = line.replace('","','*')
@@ -145,15 +145,15 @@ sqlite_import = open('/tmp/cli/sqlite_import.csv','w')
 #	sqlite_import.write(sqlite_string_4)
 
 #sqlite_import.close()
-print("\nResults:")
-print("  Number of lines in file: {0:,}".format(counters['lines_in_file']))
-print("  Number of excluded lines: {0:,}".format(counters['lines_excluded']))
-print("  Number of duplicate lines: {0:,}".format(counters['lines_duplicates']))
-print("  Number of lines output: {0:,}".format(counters['lines_output']))
+#print("\nResults:")
+#print("  Number of lines in file: {0:,}".format(counters['lines_in_file']))
+#print("  Number of excluded lines: {0:,}".format(counters['lines_excluded']))
+#print("  Number of duplicate lines: {0:,}".format(counters['lines_duplicates']))
+#print("  Number of lines output: {0:,}".format(counters['lines_output']))
 print("ods import file is at '/tmp/cli/ods_import.csv'")
-print("sqlite import file is at '/tmp/cli/sqlite_import.csv'")
+#print("sqlite import file is at '/tmp/cli/sqlite_import.csv'")
 
-print("Creating SQLite table and importing")
+#print("Creating SQLite table and importing")
 #os.system('sqlite3 /Users/mlautman/Documents/support_desk/quality_problems/sqlite/ScreamingFrog.sqlite < /Users/mlautman/Documents/support_desk/quality_problems/sqlite/screaming_frog_commands.sql')
 
 print("Creating HTML report")
@@ -220,10 +220,8 @@ next(ods_import);
 line_number=1;
 for row in ods_import:
 	line_number +=	1
-	fields = row.split(',')
-	print('Processing line {0}: {1}'.format(line_number,fields[1]))
-	detail = '\n<tr><td><a href="{0}">{0}</a></td><td><a href="{1}">{1}</a></td><td>{2}</td><td>{2}</td><td>{2}</td></tr>'.format(fields[1],fields[2],fields[2],fields[2],fields[2])
-	#detail = '\n<tr><td><a href="{0}">{0}</a></td><td><a href="{1}">{1}</a></td><td>{2}</td><td>{3}</td><td>{4}</td></tr>'.format(fields[1],fields[2],fields[3],fields[4],fields[5])
+	fields = row.split('\t')
+	detail = '\n<tr><td><a href="{0}">{0}</a></td><td><a href="{1}">{1}</a></td><td>{2}</td><td>{3}</td><td>{4}</td></tr>'.format(fields[1],fields[2],fields[3],fields[4],fields[5])
 	htmlfile.write(detail)
 htmlfile.write(ending_string)
 htmlfile.close()
