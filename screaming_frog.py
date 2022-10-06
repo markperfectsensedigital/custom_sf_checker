@@ -15,9 +15,9 @@ import re
 import functools
 
 def command_line_args(argv):
-	full_helptext = "\nUsage: screaming_frog.py [-2] [-s] [-f] [-t] [-h]\n" + "\n-2 Include rows with status code 200, otherwise remove those rows.\n\n" + "-s Include a Screaming Frog scan, otherwise do not do the scan (and assume the results are in /tmp/cli/all_inlinks.csv)\n\n" + "-j Join lines ending with \\r\\n (otherwise assume the joined file is in /tmp/cli/healed.csv)\n\n"  + "-f Include all source URLs, otherwise retain only those that start with https://www.brightspot.com/documentation/\n\n" + "-t Include only links in the topic (excludes links in TOC, left nav, footer)\n\n" + "-h Display this help text.\n"
+	full_helptext = "\nUsage: screaming_frog.py [-2] [-s] [-f] [-t] [-h]\n" + "\n-2 Include rows with status code 200, otherwise remove those rows.\n\n" + "-s Include a Screaming Frog scan, otherwise do not do the scan (and assume the results are in /tmp/cli/all_inlinks.csv)\n\n" + "-q Import Screaming Frog output into an SQLite database\n\n"  + "-f Include all source URLs, otherwise retain only those that start with https://www.brightspot.com/documentation/\n\n" + "-t Include only links in the topic (excludes links in TOC, left nav, footer)\n\n" + "-h Display this help text.\n"
 	try:
-		optlist, csvfile = getopt.getopt(argv,'2fhsjt')
+		optlist, csvfile = getopt.getopt(argv,'2fhsqt')
 	except getopt.GetoptError as err:
 		print("Unrecognized option\n")
 		print (full_helptext)
@@ -25,7 +25,7 @@ def command_line_args(argv):
 	global include_200
 	global retain_all_sources
 	global include_sf_run
-	global include_file_heal
+	global import_to_sqlite
 	global topic_links_only
 	for opt,arg in optlist:
 		if opt == '-h':
@@ -39,21 +39,21 @@ def command_line_args(argv):
 				include_sf_run = True
 		elif opt == '-t':
 				topic_links_only = True
-		elif opt == '-j':
-				include_file_heal = True
+		elif opt == '-q':
+				import_to_sqlite = True
 		
 	print("Running with the following options:")
 	print("  Include status code 200: " + str(include_200))
 	print("  Include non-documentation sources: " + str(retain_all_sources))
 	print("  Include Screaming Frog run: " + str(include_sf_run))
-	print("  Include line join: " + str(include_file_heal))
+	print("  Include SQLite import: " + str(import_to_sqlite))
 	print("  Include topic links only: " + str(topic_links_only))
 
 
 include_200 = False
 retain_all_sources = False
 include_sf_run = False
-include_file_heal = False
+import_to_sqlite = False
 topic_links_only = False
 
 healed_infile = '/tmp/cli/healed.csv'
@@ -84,16 +84,15 @@ else:
 		print("\nMissing the output file /tmp/cli/all_inlinks.csv from a Screaming Frog run. Rerun this command with the -s option to generate it. Exiting.")
 		sys.exit()
 
-if include_file_heal == True:
-	print("Creating " + healed_infile)
-	cleanfile = open(healed_infile,'wb')
-	with open('/private/tmp/cli/all_inlinks.csv', 'rb') as f:
-		chunker = functools.partial(f.read, 1048576) # Read 1MB at a time
-		for chunk in iter(chunker, b''):
-			clean = chunk.replace(b'\x0D\x0A',b'')
-			cleanfile.write(clean)
-	cleanfile.close()
-	f.close()
+print("Creating " + healed_infile)
+cleanfile = open(healed_infile,'wb')
+with open('/private/tmp/cli/all_inlinks.csv', 'rb') as f:
+	chunker = functools.partial(f.read, 1048576) # Read 1MB at a time
+	for chunk in iter(chunker, b''):
+		clean = chunk.replace(b'\x0D\x0A',b'')
+		cleanfile.write(clean)
+cleanfile.close()
+f.close()
 
 uniques = set({})
 counters = {
@@ -130,31 +129,34 @@ for row in linkreader:
 csvfile.close()
 ods_import.close()
 
-#print("Creating SQLite import file")
+if import_to_sqlite == True:
+	if not os.path.exists(healed_infile):
+		print("Missing the joined file {0}. Rerun this script with the -s to run the Screaming Frog scan and create the healed join file.")
+		sys.exit()
+	print("Creating SQLite import file")
+	csvfile = open(healed_infile,mode='r',encoding='utf-8-sig')
+	csvline = 0;
+	pattern = re.compile(r'^"(.)(.*)(.)"$');
+	sqlite_import = open('/tmp/cli/sqlite_import.csv','w')
+	for line in csvfile:
+		csvline += 1
+		sqlite_string_1 = line.replace('","','*')
+		sqlite_string_2 = sqlite_string_1.replace(',',' ')
+		sqlite_string_3 = pattern.sub(f'\g<1>\g<2>\g<3>*{csvline}',sqlite_string_2)
+		sqlite_string_4 = sqlite_string_3.replace('*',',')
+		sqlite_import.write(sqlite_string_4)
 
-#csvfile = open(healed_infile,mode='r',encoding='utf-8-sig')
-#csvline = 0;
-#pattern = re.compile(r'^"(.)(.*)(.)"$');
-#sqlite_import = open('/tmp/cli/sqlite_import.csv','w')
-#for line in csvfile:
-#	csvline += 1
-#	sqlite_string_1 = line.replace('","','*')
-#	sqlite_string_2 = sqlite_string_1.replace(',',' ')
-#	sqlite_string_3 = pattern.sub(f'\g<1>\g<2>\g<3>*{csvline}',sqlite_string_2)
-#	sqlite_string_4 = sqlite_string_3.replace('*',',')
-#	sqlite_import.write(sqlite_string_4)
+	sqlite_import.close()
+	print("\nResults:")
+	print("  Number of lines in file: {0:,}".format(counters['lines_in_file']))
+	print("  Number of excluded lines: {0:,}".format(counters['lines_excluded']))
+	print("  Number of duplicate lines: {0:,}".format(counters['lines_duplicates']))
+	print("  Number of lines output: {0:,}".format(counters['lines_output']))
+	print("ods import file is at '/tmp/cli/ods_import.csv'")
+	print("sqlite import file is at '/tmp/cli/sqlite_import.csv'")
 
-#sqlite_import.close()
-#print("\nResults:")
-#print("  Number of lines in file: {0:,}".format(counters['lines_in_file']))
-#print("  Number of excluded lines: {0:,}".format(counters['lines_excluded']))
-#print("  Number of duplicate lines: {0:,}".format(counters['lines_duplicates']))
-#print("  Number of lines output: {0:,}".format(counters['lines_output']))
-print("ods import file is at '/tmp/cli/ods_import.csv'")
-#print("sqlite import file is at '/tmp/cli/sqlite_import.csv'")
-
-#print("Creating SQLite table and importing")
-#os.system('sqlite3 /Users/mlautman/Documents/support_desk/quality_problems/sqlite/ScreamingFrog.sqlite < /Users/mlautman/Documents/support_desk/quality_problems/sqlite/screaming_frog_commands.sql')
+	print("Creating SQLite table and importing")
+	os.system('sqlite3 /Users/mlautman/Documents/support_desk/quality_problems/sqlite/ScreamingFrog.sqlite < /Users/mlautman/Documents/support_desk/quality_problems/sqlite/screaming_frog_commands.sql')
 
 print("Creating HTML report")
 htmlfile = open('/tmp/cli/broken_link_report.html',mode='w')
